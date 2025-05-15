@@ -9,7 +9,7 @@ require("dotenv").config();                  // Load environment variables from 
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];  // Google Calendar API permission scope
 const TOKEN_PATH = "token.json";             // Path to store OAuth2 token after authentication
 const UPDATE_INTERVAL = 24 * 60 * 60 * 1000; // Full update interval: 24 hours in milliseconds
-const WATCH_INTERVAL = 5 * 60 * 1000;        // Change check interval: 5 minutes in milliseconds
+const WATCH_INTERVAL = 30 * 60 * 1000;        // Change check interval: 30 minutes in milliseconds
 
 // Global variable for tracking calendar changes
 let lastSyncToken = null;                    // Stores sync token to efficiently fetch only changed events
@@ -75,26 +75,50 @@ function getAccessToken(oAuth2Client, callback) {
 }
 
 /**
- * Fetch current weather information from WeatherAPI.com
+ * Fetch weather forecast information from WeatherAPI.com for a specific date and time
+ * @param {Date} eventDate Date object representing the event's start time
  * @returns {Promise<string>} Weather description in format "(condition, temperature°C)"
  */
-async function getWeatherEmoji() {
-    const apiKey = process.env.WEATHERAPI_KEY;
-    const city = "Seoul";
+async function getWeatherInfo(eventDate) {
+    try {
+        const apiKey = process.env.WEATHERAPI_KEY;
+        const city = "Seoul";
+        const now = new Date();
+        const daysDifference = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
 
-    // Make API request to WeatherAPI.com
-    const url = `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${city}&aqi=no`;
-    const res = await axios.get(url);
-    const condition = res.data.current.condition.text.toLowerCase();
-    const tempC = res.data.current.temp_c;
+        // WeatherAPI free tier supports up to 14 days forecast
+        if (daysDifference > 14) {
+            return "(forecast unavailable)";
+        }
 
-    // Format weather description
-    let description = `(${condition}, ${Math.round(tempC)}°C)`;
-    return description;
+        // For future dates, use forecast API
+        const url = `http://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${city}&days=${daysDifference + 1}`;
+        const res = await axios.get(url);
+        
+        // Find the forecast for the event date
+        const forecast = res.data.forecast.forecastday.find(day => 
+            new Date(day.date).toDateString() === eventDate.toDateString()
+        );
+
+        if (!forecast) {
+            return "(forecast unavailable)";
+        }
+
+        // Find the hour closest to the event time
+        const eventHour = eventDate.getHours();
+        const hourData = forecast.hour.find(h => new Date(h.time).getHours() === eventHour) || forecast.hour[0];
+
+        const condition = hourData.condition.text.toLowerCase();
+        const tempC = hourData.temp_c;
+        return `(${condition}, ${Math.round(tempC)}°C)`;
+    } catch (error) {
+        console.error('Weather API Error:', error.message);
+        return "(weather unavailable)";
+    }
 }
 
 /**
- * Update calendar events with current weather information
+ * Update calendar events with weather information for their specific start times
  * @param {google.auth.OAuth2} auth Authorized OAuth2 client
  * @param {string} syncToken Optional token for efficient updates
  */
@@ -102,18 +126,26 @@ async function updateCalendarEvents(auth, syncToken = null) {
     const calendar = google.calendar({ version: "v3", auth });
 
     try {
+        // Calculate time range for 7 days
+        const timeMin = new Date();
+        const timeMax = new Date();
+        timeMax.setDate(timeMax.getDate() + 7);  // Add 7 days
+
         // Parameters for fetching calendar events
         const listParams = {
             calendarId: "primary",           // Use primary calendar
-            maxResults: 40,                  // Fetch up to 40 events
             singleEvents: true,              // Expand recurring events
             orderBy: "startTime",            // Sort by start time
-            timeMin: new Date().toISOString(), // Only future events
+            timeMin: timeMin.toISOString(),  // Start from now
+            timeMax: timeMax.toISOString(),  // Up to 7 days from now
         };
 
         // If we have a sync token, use it to get only changed events
         if (syncToken) {
             listParams.syncToken = syncToken;
+            // When using sync token, we can't use timeMin/timeMax
+            delete listParams.timeMin;
+            delete listParams.timeMax;
         }
 
         // Fetch events from Google Calendar
@@ -123,16 +155,23 @@ async function updateCalendarEvents(auth, syncToken = null) {
         const events = res.data.items;
 
         if (!events || events.length === 0) {
-            console.log("No events to update.");
+            console.log("No events found in the next 7 days.");
             return;
         }
 
-        console.log(`Updating ${events.length} events with current weather...`);
+        console.log(`Updating ${events.length} events with weather forecasts...`);
         
         // Process each event
         for (const event of events) {
-            const start = event.start.dateTime || event.start.date;
-            const weatherDesc = await getWeatherEmoji();
+            const startDateTime = event.start.dateTime || event.start.date;
+            const eventDate = new Date(startDateTime);
+            
+            // Skip events beyond 7 days even if returned by sync token
+            if (eventDate > timeMax) {
+                continue;
+            }
+
+            const weatherDesc = await getWeatherInfo(eventDate);
             
             // Clean the event title by removing existing weather info
             let cleanTitle = event.summary.replace(/\([^)]*\)/g, '').trim();  // Remove anything in parentheses
