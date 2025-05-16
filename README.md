@@ -5,7 +5,7 @@ Automatically updates Google Calendar events with current weather information in
 ## Features
 
 - Updates calendar events with current weather conditions and temperature
-- Checks for calendar changes every 5 minutes
+- Checks for calendar changes every 30 minutes
 - Performs full update every 24 hours
 - Uses WeatherAPI.com for weather data
 - Runs as a background service using PM2
