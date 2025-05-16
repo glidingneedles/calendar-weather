@@ -10,4 +10,8 @@ services:
       - key: GOOGLE_CREDENTIALS
         sync: false
       - key: GOOGLE_TOKEN
-        sync: false 
+        sync: false
+    plan: free
+    region: ohio
+    healthCheckPath: /health
+    autoDeploy: true 

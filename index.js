@@ -21,7 +21,8 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
             status: 'healthy',
-            lastSync: lastSyncToken ? 'active' : 'pending'
+            lastSync: lastSyncToken ? 'active' : 'pending',
+            timestamp: new Date().toISOString()
         }));
     } else {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -30,8 +31,8 @@ const server = http.createServer((req, res) => {
 });
 
 // Start HTTP server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+const PORT = process.env.PORT || 10000;  // Render will provide PORT environment variable
+server.listen(PORT, '0.0.0.0', () => {  // Listen on all network interfaces
     console.log(`Server running on port ${PORT}`);
 });
 
