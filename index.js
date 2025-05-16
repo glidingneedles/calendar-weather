@@ -4,6 +4,7 @@ const readline = require("readline");         // Module for reading user input f
 const { google } = require("googleapis");     // Google APIs client library for calendar access
 const axios = require("axios");              // HTTP client for making API requests to WeatherAPI
 require("dotenv").config();                  // Load environment variables from .env file (contains API keys)
+const http = require('http');  // Add HTTP server capability
 
 // Configuration constants
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];  // Google Calendar API permission scope
@@ -13,6 +14,26 @@ const WATCH_INTERVAL = 30 * 60 * 1000;        // Change check interval: 30 minut
 
 // Global variable for tracking calendar changes
 let lastSyncToken = null;                    // Stores sync token to efficiently fetch only changed events
+
+// Create HTTP server for health checks
+const server = http.createServer((req, res) => {
+    if (req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+            status: 'healthy',
+            lastSync: lastSyncToken ? 'active' : 'pending'
+        }));
+    } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Calendar Weather Bot Running');
+    }
+});
+
+// Start HTTP server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
 
 // Initial application setup
 // Use credentials from environment variables
