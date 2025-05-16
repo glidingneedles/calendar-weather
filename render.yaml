@@ -6,4 +6,8 @@ services:
     startCommand: node index.js
     envVars:
       - key: WEATHERAPI_KEY
+        sync: false
+      - key: GOOGLE_CREDENTIALS
+        sync: false
+      - key: GOOGLE_TOKEN
         sync: false 

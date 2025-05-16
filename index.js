@@ -15,12 +15,17 @@ const WATCH_INTERVAL = 30 * 60 * 1000;        // Change check interval: 30 minut
 let lastSyncToken = null;                    // Stores sync token to efficiently fetch only changed events
 
 // Initial application setup
-// Read the credentials file and start the authorization process
-fs.readFile("credentials.json", (err, content) => {
-    if (err) return console.log("Error loading client secret file:", err);
-    // Parse credentials and start authorization
-    authorize(JSON.parse(content), startApplication);
-});
+// Use credentials from environment variables
+const credentials = process.env.GOOGLE_CREDENTIALS ? JSON.parse(process.env.GOOGLE_CREDENTIALS) : null;
+const token = process.env.GOOGLE_TOKEN ? JSON.parse(process.env.GOOGLE_TOKEN) : null;
+
+if (!credentials) {
+    console.error("No credentials found in environment variables!");
+    process.exit(1);
+}
+
+// Initialize with credentials from environment
+authorize(credentials, startApplication);
 
 /**
  * Create and authorize OAuth2 client
@@ -28,50 +33,21 @@ fs.readFile("credentials.json", (err, content) => {
  * @param {function} callback The callback to call with the authorized client
  */
 function authorize(credentials, callback) {
-    // Extract client credentials from the downloaded Google Cloud credentials
+    // Extract client credentials
     const { client_secret, client_id, redirect_uris } = credentials.installed;
     // Create new OAuth2 client instance
     const oAuth2Client = new google.auth.OAuth2(
         client_id, client_secret, redirect_uris[0]
     );
 
-    // Check if we have previously stored a token
-    fs.readFile(TOKEN_PATH, (err, token) => {
-        if (err) return getAccessToken(oAuth2Client, callback);  // If no token, get new one
-        oAuth2Client.setCredentials(JSON.parse(token));         // Set existing token
-        callback(oAuth2Client);                                 // Continue with authorized client
-    });
-}
-
-/**
- * Get and store new token after prompting for user authorization
- * @param {google.auth.OAuth2} oAuth2Client The OAuth2 client to get token for
- * @param {function} callback The callback for the authorized client
- */
-function getAccessToken(oAuth2Client, callback) {
-    // Generate URL for user to authorize the application
-    const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: "offline",              // We want offline access (refresh token)
-        scope: SCOPES,                       // Request calendar access permissions
-    });
-    console.log("Authorize this app by visiting this url:", authUrl);
-    
-    // Create interface to read user input from terminal
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    
-    // Prompt user to enter the authorization code
-    rl.question("Enter the code from that page here: ", (code) => {
-        oAuth2Client.getToken(code, (err, token) => {
-            if (err) return console.error("Error retrieving access token", err);
-            oAuth2Client.setCredentials(token);           // Set the token
-            fs.writeFileSync(TOKEN_PATH, JSON.stringify(token));  // Save token for future use
-            rl.close();
-            callback(oAuth2Client);
-        });
-    });
+    if (token) {
+        // Use token from environment variables
+        oAuth2Client.setCredentials(token);
+        callback(oAuth2Client);
+    } else {
+        console.error("No token found in environment variables!");
+        process.exit(1);
+    }
 }
 
 /**
