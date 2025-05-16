@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["calendar", "weather", "google-calendar"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A Node.js application that automatically updates Google Calendar events with weather information",
   "dependencies": {
     "axios": "^1.9.0",
     "dotenv": "^16.5.0",
