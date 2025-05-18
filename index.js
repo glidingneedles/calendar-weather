@@ -9,8 +9,8 @@ const http = require('http');  // Add HTTP server capability
 // Configuration constants
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];  // Google Calendar API permission scope
 const TOKEN_PATH = "token.json";             // Path to store OAuth2 token after authentication
-const UPDATE_INTERVAL = 24 * 60 * 60 * 1000; // Full update interval: 24 hours in milliseconds
-const WATCH_INTERVAL = 30 * 60 * 1000;        // Change check interval: 30 minutes in milliseconds
+const UPDATE_INTERVAL = 60 * 60 * 1000;      // Full update interval: 1 hour in milliseconds
+const WATCH_INTERVAL = 5 * 60 * 1000;        // Change check interval: 5 minutes in milliseconds
 
 // Global variable for tracking calendar changes
 let lastSyncToken = null;                    // Stores sync token to efficiently fetch only changed events
@@ -228,9 +228,9 @@ function startApplication(auth) {
     // Perform initial update of all events
     updateCalendarEvents(auth).catch(console.error);
     
-    // Set up scheduled full updates every 24 hours
+    // Set up scheduled full updates every hour
     setInterval(() => {
-        console.log("\nStarting scheduled 24-hour update...");
+        console.log("\nStarting scheduled hourly update...");
         lastSyncToken = null;  // Force a full sync
         updateCalendarEvents(auth).catch(console.error);
     }, UPDATE_INTERVAL);
@@ -242,7 +242,7 @@ function startApplication(auth) {
     }, WATCH_INTERVAL);
     
     // Log startup information
-    console.log(`Application started. Will perform full updates every 24 hours.`);
+    console.log(`Application started. Will perform full updates every hour.`);
     console.log(`Checking for changes every 5 minutes.`);
     console.log(`Next full update will be at: ${new Date(Date.now() + UPDATE_INTERVAL).toLocaleString()}`);
 }
